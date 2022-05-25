@@ -15,6 +15,16 @@
             </summary>
             <returns>If it is anroid</returns>
         </member>
+        <member name="T:OpusDotNet.NativeLib">
+            <summary>
+            The Library manager
+            </summary>
+        </member>
+        <member name="M:OpusDotNet.NativeLib.ForceLoad">
+            <summary>
+            Makes think lib is already loaded
+            </summary>
+        </member>
         <member name="T:OpusDotNet.Application">
             <summary>
             Specifies the intended applications.

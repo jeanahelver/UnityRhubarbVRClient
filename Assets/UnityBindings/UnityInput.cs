@@ -66,9 +66,19 @@ public class UnityInput : IRInput
                 return new Vector2f(scroll.x, scroll.y);
             }
         }
+
+        public bool HideMouse { get => Cursor.visible; set => EngineRunner.RunonMainThread(() => Cursor.visible = value); }
+        public bool CenterMouse { get => Cursor.lockState == CursorLockMode.Locked; set { EngineRunner.RunonMainThread(() => { if (value) { Cursor.lockState = CursorLockMode.Locked; } else { Cursor.lockState = CursorLockMode.None; } }); } }
+
+        public EngineRunner EngineRunner { get; }
+
+        public UMouse(EngineRunner engineRunner)
+        {
+            EngineRunner = engineRunner;
+        }
     }
 
-    public IRMouse Mouse => new UMouse();
+    public IRMouse Mouse => new UMouse(EngineRunner);
 
     public EngineRunner EngineRunner { get; }
 

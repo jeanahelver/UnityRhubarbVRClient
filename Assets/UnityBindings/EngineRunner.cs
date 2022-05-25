@@ -7,11 +7,57 @@ using System;
 using System.IO;
 using UnityEngine.XR;
 using RNumerics;
-
-
+using System.Threading;
 
 public class EngineRunner : MonoBehaviour
 {
+    [ThreadStatic]
+    public static bool IsMainThread = false;
+    public class Holder<T>
+    {
+        public T item;
+    }
+
+    public T RunonMainThread<T>(Func<T> action)
+    {
+        if (IsMainThread)
+        {
+            return action();
+        }
+        var manualResetEvent = new Semaphore(0, 1);
+        var datapass = new Holder<T>();
+        void ThreadAction()
+        {
+            datapass.item = action();
+            manualResetEvent.Release();
+        }
+        runonmainthread.SafeAdd(ThreadAction);
+        manualResetEvent.WaitOne();
+        manualResetEvent.Close();
+        manualResetEvent.Dispose();
+        return datapass.item;
+    }
+    public void RunonMainThread(Action action)
+    {
+        if (IsMainThread)
+        {
+            action();
+            return;
+        }
+        var manualResetEvent = new Semaphore(0,1);
+        void ThreadAction()
+        {
+            action();
+            manualResetEvent.Release();
+        }
+        runonmainthread.SafeAdd(ThreadAction);
+        manualResetEvent.WaitOne();
+        manualResetEvent.Close();
+        manualResetEvent.Dispose();
+        return;
+    }
+    public SafeList<Action> runonmainthread = new SafeList<Action>();
+
     public static EngineRunner _;
 
 
@@ -22,7 +68,17 @@ public class EngineRunner : MonoBehaviour
 
     public GameObject UserHead;
 
+    public void AddText(string id, string v, Matrix p)
+    {
+    }
+
+    public GameObject CameraOffset;
+
     public GameObject Root;
+
+    public void AddChar(string id, char c, Matrix p, Font instances, RhuEngine.Linker.FontStyle fontStyle, Vector2f textCut)
+    {
+    }
 
     public GameObject LeftController;
 
@@ -76,14 +132,19 @@ public class EngineRunner : MonoBehaviour
     public OutputCapture cap;
     public UnityEngineLink link;
 
+    public bool isVR = false;
+
     void Start()
     {
+        IsMainThread = true;
         _ = this;
-        var isVR = isHardwarePresent();
+        isVR = isHardwarePresent();
         if (!isVR)
         {
             Debug.Log("Starting RuhbarbVR ScreenMode");
-            Application.targetFrameRate = 60;
+            CameraOffset.transform.localPosition = Vector3.zero;
+            LeftController.SetActive(false);
+            RightController.SetActive(false);
         }
         else
         {
@@ -95,7 +156,7 @@ public class EngineRunner : MonoBehaviour
         var args = Environment.GetCommandLineArgs();
         var appPath = Path.GetDirectoryName(Application.dataPath);
         engine = new Engine(link, args, cap, appPath);
-        engine.Init(false);
+        engine.Init();
     }
 
     public class TempMesh
@@ -188,19 +249,30 @@ public class EngineRunner : MonoBehaviour
             tempmeshes[id].Reload(mesh, target, p, tint);
         }
     }
+    void MainThreadUpdate()
+    {
+        runonmainthread.SafeOperation((list) =>
+        {
+            foreach (var item in list)
+            {
+                item.Invoke();
+            }
+            list.Clear();
+        });
+    }
 
     void Update()
     {
-        var cpos = Input.compositionCursorPos;
-        var rhubarbcpos = new Vector2f(cpos.x, cpos.y);
-        MouseDelta = LastMousePos - rhubarbcpos;
-        LastMousePos = rhubarbcpos;
-
+        MainThreadUpdate();
+        var sens = 100f * Time.deltaTime;
+        MouseDelta = new Vector2f(Input.GetAxis("Mouse X") * sens, -Input.GetAxis("Mouse Y") * sens);
         foreach (var item in tempmeshes)
         {
             item.Value.UsedThisFrame = false;
         }
+        MainThreadUpdate();
         engine.Step();
+        MainThreadUpdate();
         var removethisframe = new List<string>();
         foreach (var item in tempmeshes)
         {
@@ -210,9 +282,11 @@ public class EngineRunner : MonoBehaviour
                 item.Value.Remove();
             }
         }
+        MainThreadUpdate();
         foreach (var item in removethisframe)
         {
             tempmeshes.Remove(item);
         }
+        MainThreadUpdate();
     }
 }

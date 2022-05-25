@@ -11,6 +11,8 @@ public class UnityTexture2D : IRTexture2D
 {
     public RTexture2D White => new(Texture2D.whiteTexture);
 
+    public EngineRunner EngineRunner { get; }
+
     public TexAddress GetAddressMode(object target)
     {
         switch (((Texture2D)target).wrapMode)
@@ -108,58 +110,110 @@ public class UnityTexture2D : IRTexture2D
             default:
                 break;
         }
-        return new Texture2D(2, 2, unityFormat, true, linear);
+        return EngineRunner.RunonMainThread(() =>
+        {
+            return new Texture2D(2, 2, unityFormat, true, linear);
+        });
     }
 
     public object MakeFromColors(Colorb[] colors, int width, int height, bool srgb)
     {
-        var tex = new Texture2D(width, height, TextureFormat.RGBA32,true,srgb);
-        tex.SetPixelData(colors, 0);
-        return tex;
+        return EngineRunner.RunonMainThread(() =>
+        {
+            var tex = new Texture2D(width, height, TextureFormat.RGBA32, true, srgb);
+            tex.SetPixelData(colors, 0);
+            return tex;
+        });
     }
 
     public object MakeFromMemory(byte[] data)
     {
-        var tex = new Texture2D(4, 4);
-        tex.LoadImage(data);
-        return tex;
+
+        return EngineRunner.RunonMainThread(() =>
+        {
+            var tex = new Texture2D(4, 4);
+            if (!tex.LoadImage(data, false))
+            {
+                Debug.LogError("Failed to load texture from mem");
+                throw new Exception("Failed to load texture");
+            }
+            return tex;
+        });
     }
 
     public void SetAddressMode(object target, TexAddress value)
     {
-        ((Texture2D)target).wrapMode = value switch
+        if (((Texture2D)target) == null)
         {
-            TexAddress.Wrap => TextureWrapMode.Repeat,
-            TexAddress.Clamp => TextureWrapMode.Clamp,
-            TexAddress.Mirror => TextureWrapMode.Mirror,
-            _ => TextureWrapMode.Mirror,
-        };
+            return;
+        }
+        EngineRunner.RunonMainThread(() =>
+        {
+            ((Texture2D)target).wrapMode = value switch
+            {
+                TexAddress.Wrap => TextureWrapMode.Repeat,
+                TexAddress.Clamp => TextureWrapMode.Clamp,
+                TexAddress.Mirror => TextureWrapMode.Mirror,
+                _ => TextureWrapMode.Mirror,
+            };
+        });
     }
 
     public void SetAnisoptropy(object target, int value)
     {
-        ((Texture2D)target).anisoLevel = value;
+        if (((Texture2D)target) == null)
+        {
+            return;
+        }
+        EngineRunner.RunonMainThread(() =>
+        {
+            ((Texture2D)target).anisoLevel = value;
+        });
     }
 
     public void SetColors(object tex, int width, int height, byte[] rgbaData)
     {
-        ((Texture2D)tex).Reinitialize(width, height);
-        ((Texture2D)tex).SetPixelData(rgbaData, 0);
+        if (((Texture2D)tex) == null)
+        {
+            return;
+        }
+        EngineRunner.RunonMainThread(() =>
+        {
+            ((Texture2D)tex).Reinitialize(width, height);
+            ((Texture2D)tex).SetPixelData(rgbaData, 0);
+            ((Texture2D)tex).Apply();
+        });
     }
 
     public void SetSampleMode(object target, TexSample value)
     {
-        ((Texture2D)target).filterMode = value switch
+        if (((Texture2D)target) == null)
         {
-            TexSample.Linear => FilterMode.Bilinear,
-            TexSample.Point => FilterMode.Point,
-            TexSample.Anisotropic => FilterMode.Trilinear,
-            _ => FilterMode.Bilinear,
-        };
+            return;
+        }
+        EngineRunner.RunonMainThread(() =>
+        {
+            ((Texture2D)target).filterMode = value switch
+            {
+                TexSample.Linear => FilterMode.Bilinear,
+                TexSample.Point => FilterMode.Point,
+                TexSample.Anisotropic => FilterMode.Trilinear,
+                _ => FilterMode.Bilinear,
+            };
+        });
     }
 
     public void SetSize(object tex, int width, int height)
     {
-        ((Texture2D)tex).Reinitialize(width, height);
+        EngineRunner.RunonMainThread(() =>
+        {
+            ((Texture2D)tex).Reinitialize(width, height);
+        });
     }
+
+    public UnityTexture2D(EngineRunner engineRunner)
+    {
+        EngineRunner = engineRunner;
+    }
+
 }
