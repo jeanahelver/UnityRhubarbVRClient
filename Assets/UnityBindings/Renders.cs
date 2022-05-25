@@ -71,14 +71,17 @@ public class UnityMeshRender : RenderLinkBase<MeshRender>
 
     public override void Init()
     {
-        gameObject = new GameObject("MeshRender");
-        gameObject.transform.parent = EngineRunner._.Root.transform;
-        meshRenderer = gameObject.AddComponent<MeshRenderer>();
-        meshFilter = gameObject.AddComponent<MeshFilter>();
-        RenderingComponent.materials.Changed += Materials_Changed;
-        RenderingComponent.colorLinear.Changed += ColorLinear_Changed;
-        RenderingComponent.Entity.GlobalTransformChange += Entity_GlobalTransformChange;
-        RenderingComponent.mesh.LoadChange += Mesh_LoadChange;
+        EngineRunner._.RunonMainThread(() =>
+        {
+            gameObject = new GameObject("MeshRender");
+            gameObject.transform.parent = EngineRunner._.Root.transform;
+            meshRenderer = gameObject.AddComponent<MeshRenderer>();
+            meshFilter = gameObject.AddComponent<MeshFilter>();
+            RenderingComponent.materials.Changed += Materials_Changed;
+            RenderingComponent.colorLinear.Changed += ColorLinear_Changed;
+            RenderingComponent.Entity.GlobalTransformChange += Entity_GlobalTransformChange;
+            RenderingComponent.mesh.LoadChange += Mesh_LoadChange;
+        });
     }
 
     private void Mesh_LoadChange(RMesh obj)
@@ -94,65 +97,83 @@ public class UnityMeshRender : RenderLinkBase<MeshRender>
 
     private void Entity_GlobalTransformChange(Entity obj)
     {
-        var m = RenderingComponent.Entity.GlobalTrans;
-        var pos = m.Translation;
-        var rot = m.Rotation;
-        var scale = m.Scale;
-        gameObject.transform.localPosition = new Vector3(float.IsNaN(pos.x) ? 0 : pos.x, float.IsNaN(pos.y) ? 0 : pos.y, float.IsNaN(pos.z) ? 0 : pos.z);
-        gameObject.transform.localRotation = new Quaternion(float.IsNaN(rot.x) ? 0 : rot.x, float.IsNaN(rot.y) ? 0 : rot.y, float.IsNaN(rot.z) ? 0 : rot.z, float.IsNaN(rot.w) ? 0 : rot.w);
-        gameObject.transform.localScale = new Vector3(float.IsNaN(scale.x) ? 0 : scale.x, float.IsNaN(scale.y) ? 0 : scale.y, float.IsNaN(scale.z) ? 0 : scale.z);
+        EngineRunner._.RunonMainThread(() =>
+        {
+            var m = RenderingComponent.Entity.GlobalTrans;
+            var pos = m.Translation;
+            var rot = m.Rotation;
+            var scale = m.Scale;
+            gameObject.transform.localPosition = new Vector3(float.IsNaN(pos.x) ? 0 : pos.x, float.IsNaN(pos.y) ? 0 : pos.y, float.IsNaN(pos.z) ? 0 : pos.z);
+            gameObject.transform.localRotation = new Quaternion(float.IsNaN(rot.x) ? 0 : rot.x, float.IsNaN(rot.y) ? 0 : rot.y, float.IsNaN(rot.z) ? 0 : rot.z, float.IsNaN(rot.w) ? 0 : rot.w);
+            gameObject.transform.localScale = new Vector3(float.IsNaN(scale.x) ? 0 : scale.x, float.IsNaN(scale.y) ? 0 : scale.y, float.IsNaN(scale.z) ? 0 : scale.z);
+        });
     }
 
     private void ColorLinear_Changed(IChangeable obj)
     {
-        for (int i = 0; i < materials.Length; i++)
+        EngineRunner._.RunonMainThread(() =>
         {
-            var color = RenderingComponent.colorLinear.Value;
-            if (materials[i] is not null)
+            for (int i = 0; i < materials.Length; i++)
             {
-                materials[i].color = new Color(color.r, color.g, color.b, color.a);
+                var color = RenderingComponent.colorLinear.Value;
+                if (materials[i] is not null)
+                {
+                    materials[i].SetColor(RMaterial.MainColor, new Color(color.r, color.g, color.b, color.a));
+                }
             }
-        }
+        });
     }
 
     private void Materials_Changed(IChangeable obj)
     {
-        for (int i = 0; i < materials.Length; i++)
+        EngineRunner._.RunonMainThread(() =>
         {
-            UnityEngine.Object.Destroy(materials[i]);
-        }
-        materials = new Material[RenderingComponent.materials.Count];
-        for (int i = 0; i < RenderingComponent.materials.Count; i++)
-        {
-            try
+            for (int i = 0; i < materials.Length; i++)
             {
-                materials[i] = new Material((Material)RenderingComponent.materials[i].Asset?.Target);
-                var color = RenderingComponent.colorLinear.Value;
-                materials[i].color = new Color(color.r, color.g, color.b, color.a);
-
+                UnityEngine.Object.Destroy(materials[i]);
             }
-            catch { }
-        }
-        meshRenderer.materials = materials;
+            materials = new Material[RenderingComponent.materials.Count];
+            for (int i = 0; i < RenderingComponent.materials.Count; i++)
+            {
+                try
+                {
+                    materials[i] = new Material((Material)RenderingComponent.materials[i].Asset?.Target);
+                    var color = RenderingComponent.colorLinear.Value;
+                    materials[i].SetColor(RMaterial.MainColor, new Color(color.r, color.g, color.b, color.a));
+
+                }
+                catch { }
+            }
+            meshRenderer.materials = materials;
+        });
     }
 
     public override void Remove()
     {
-        UnityEngine.Object.Destroy(gameObject);
-        for (int i = 0; i < materials.Length; i++)
+        EngineRunner._.RunonMainThread(() =>
         {
-            UnityEngine.Object.Destroy(materials[i]);
-        }
+            UnityEngine.Object.Destroy(gameObject);
+            for (int i = 0; i < materials.Length; i++)
+            {
+                UnityEngine.Object.Destroy(materials[i]);
+            }
+        });
     }
 
     public override void Started()
     {
-        gameObject?.SetActive(true);
+        EngineRunner._.RunonMainThread(() =>
+        {
+            gameObject?.SetActive(true);
+        });
     }
 
     public override void Stopped()
     {
-        gameObject?.SetActive(false);
+        EngineRunner._.RunonMainThread(() =>
+        {
+            gameObject?.SetActive(false);
+        });
     }
 
     public bool firstRender = true;

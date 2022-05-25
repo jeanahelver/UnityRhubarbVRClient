@@ -25,6 +25,10 @@ public class UnityEngineLink : IEngineLink
 
     public EngineRunner EngineRunner { get; }
 
+    public bool ForceLibLoad => true;
+
+    public bool InVR => EngineRunner.isVR;
+
     public void BindEngine(RhuEngine.Engine engine)
     {
         RLog.Instance = new UnityLoger();
@@ -32,10 +36,11 @@ public class UnityEngineLink : IEngineLink
 
     public void LoadStatics()
     {
-        RTexture2D.Instance = new UnityTexture2D();
-        RMaterial.Instance = new UnityMaterial();
+        RTexture2D.Instance = new UnityTexture2D(EngineRunner);
+        RMaterial.Instance = new UnityMaterial(EngineRunner);
+        RMaterial.ConstInstance = new UnityMitStatics();
         RShader.Instance = new UnityShader(EngineRunner);
-        RText.Instance = new UnityText();
+        RText.Instance = new UnityText(EngineRunner);
         RMesh.Instance = new UnityMesh(EngineRunner);
         RRenderer.Instance = new UnityRenderer(EngineRunner);
         RFont.Instance = new UnityFont();
